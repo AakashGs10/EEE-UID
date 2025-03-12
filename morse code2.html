@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Morse Code Translator</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            text-align: center;
+            margin: 50px;
+            background: linear-gradient(to right, #141E30, #243B55);
+            color: white;
+            transition: background 0.5s ease;
+        }
+        h1 {
+            font-size: 2.5rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 20px;
+            border-radius: 10px;
+            width: 50%;
+            margin: auto;
+            box-shadow: 0 0 15px rgba(255, 255, 255, 0.2);
+        }
+        textarea {
+            width: 90%;
+            height: 100px;
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            border: none;
+            font-size: 16px;
+        }
+        button {
+            padding: 10px 20px;
+            margin: 10px;
+            font-size: 16px;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            background: #FF9800;
+            color: white;
+            transition: 0.3s ease;
+        }
+        button:hover {
+            background: #E65100;
+        }
+        .dark-mode {
+            background: #121212;
+        }
+        .toggle-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            padding: 8px 16px;
+            background: #FFD700;
+            color: black;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <button class="toggle-btn" onclick="toggleDarkMode()">Toggle Dark Mode</button>
+    <h1>Morse Code Translator</h1>
+    <div class="container">
+        <textarea id="inputText" placeholder="Enter text or Morse code..." oninput="autoTranslate()"></textarea>
+        <br>
+        <button onclick="convertToMorse()">Convert to Morse</button>
+        <button onclick="convertToText()">Convert to Text</button>
+        <br>
+        <textarea id="outputText" placeholder="Translation will appear here..." readonly></textarea>
+    </div>
+    <script>
+        const morseDict = {
+            'A': '.-', 'B': '-...', 'C': '-.-.', 'D': '-..', 'E': '.',
+            'F': '..-.', 'G': '--.', 'H': '....', 'I': '..', 'J': '.---',
+            'K': '-.-', 'L': '.-..', 'M': '--', 'N': '-.', 'O': '---',
+            'P': '.--.', 'Q': '--.-', 'R': '.-.', 'S': '...', 'T': '-',
+            'U': '..-', 'V': '...-', 'W': '.--', 'X': '-..-', 'Y': '-.--', 'Z': '--..',
+            '1': '.----', '2': '..---', '3': '...--', '4': '....-', '5': '.....',
+            '6': '-....', '7': '--...', '8': '---..', '9': '----.', '0': '-----',
+            ' ': '/'
+        };
+        
+        function convertToMorse() {
+            let text = document.getElementById("inputText").value.toUpperCase();
+            let morse = text.split('').map(char => morseDict[char] || char).join(' ');
+            document.getElementById("outputText").value = morse;
+            playMorseSound(morse);
+        }
+        
+        function convertToText() {
+            let morse = document.getElementById("inputText").value.trim().split(' ');
+            let text = morse.map(code => Object.keys(morseDict).find(key => morseDict[key] === code) || ' ').join('');
+            document.getElementById("outputText").value = text;
+        }
+        
+        function autoTranslate() {
+            let input = document.getElementById("inputText").value;
+            if (input.includes('.') || input.includes('-')) {
+                convertToText();
+            } else {
+                convertToMorse();
+            }
+        }
+        
+        function playMorseSound(morse) {
+            let i = 0;
+            function playNext() {
+                if (i >= morse.length) return;
+                let tone = new Audio(morse[i] === '.' ? 'dot.mp3' : 'dash.mp3');
+                tone.play();
+                i++;
+                setTimeout(playNext, morse[i] === '.' ? 200 : 600);
+            }
+            playNext();
+        }
+        
+        function toggleDarkMode() {
+            document.body.classList.toggle("dark-mode");
+        }
+    </script>
+</body>
+</html>
