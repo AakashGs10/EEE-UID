@@ -1,0 +1,369 @@
+#include <Wire.h>
+
+#include <LiquidCrystal_I2C.h>
+
+
+
+// I2C LCD address (typical address is 0x27 or 0x3F)
+
+LiquidCrystal_I2C lcd(0x27, 16, 2); 
+
+
+
+// Pin configurations
+
+const int buttonPin = 2;     // Push button for input
+
+const int buzzerPin = 8;     // Buzzer for sound output
+
+const int ledPin = 13;       // Built-in LED for visual feedback
+
+
+
+// Morse code timing constants (in milliseconds)
+
+const unsigned long dotDuration = 200;
+
+const unsigned long dashDuration = dotDuration * 3;
+
+const unsigned long elementGap = dotDuration;
+
+const unsigned long letterGap = dotDuration * 3;
+
+const unsigned long wordGap = dotDuration * 7;
+
+
+
+// Button state variables
+
+int buttonState;
+
+int lastButtonState = HIGH;
+
+unsigned long pressTime = 0;
+
+unsigned long releaseTime = 0;
+
+unsigned long lastDebounceTime = 0;
+
+unsigned long debounceDelay = 50;
+
+
+
+// Morse code buffers
+
+String currentMorseChar = "";
+
+String message = "";
+
+char displayBuffer[17] = ""; // For LCD display (16 chars + null terminator)
+
+int bufferPosition = 0;
+
+
+
+// Morse code dictionary
+
+const char* morseAlphabet[] = {
+
+  ".-", "-...", "-.-.", "-..", ".", "..-.", "--.", "....", "..", ".---",
+
+  "-.-", ".-..", "--", "-.", "---", ".--.", "--.-", ".-.", "...", "-",
+
+  "..-", "...-", ".--", "-..-", "-.--", "--.."
+
+};
+
+char letters[] = {'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 
+
+                 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 
+
+                 'U', 'V', 'W', 'X', 'Y', 'Z'};
+
+
+
+// Numbers 0-9 in Morse
+
+const char* morseNumbers[] = {
+
+  "-----", ".----", "..---", "...--", "....-", ".....", "-....", "--...", "---..", "----."
+
+};
+
+
+
+void setup() {
+
+  // Initialize pins
+
+  pinMode(buttonPin, INPUT_PULLUP);
+
+  pinMode(buzzerPin, OUTPUT);
+
+  pinMode(ledPin, OUTPUT);
+
+  
+
+  // Initialize I2C LCD
+
+  lcd.init();                      
+
+  lcd.backlight();
+
+  
+
+  // Display startup message
+
+  lcd.setCursor(0, 0);
+
+  lcd.print("Morse Translator");
+
+  lcd.setCursor(0, 1);
+
+  lcd.print("Ready...");
+
+  
+
+  // Start serial for debugging
+
+  Serial.begin(9600);
+
+  Serial.println("Morse Code Translator Ready");
+
+  Serial.println("Press button: short for DOT, long for DASH");
+
+  Serial.println("Wait for timing to add letters/words");
+
+  
+
+  delay(2000);
+
+  clearLCD();
+
+}
+
+
+
+void loop() {
+
+  // Read the button state with debounce
+
+  int reading = digitalRead(buttonPin);
+
+  
+
+  if (reading != lastButtonState) {
+
+    lastDebounceTime = millis();
+
+  }
+
+  
+
+  if ((millis() - lastDebounceTime) > debounceDelay) {
+
+    if (reading != buttonState) {
+
+      buttonState = reading;
+
+      
+
+      if (buttonState == LOW) { // Button pressed
+
+        pressTime = millis();
+
+        // Turn on buzzer and LED
+
+        digitalWrite(buzzerPin, HIGH);
+
+        digitalWrite(ledPin, HIGH);
+
+      } 
+
+      else { // Button released
+
+        // Turn off buzzer and LED
+
+        digitalWrite(buzzerPin, LOW);
+
+        digitalWrite(ledPin, LOW);
+
+        
+
+        releaseTime = millis();
+
+        unsigned long pressDuration = releaseTime - pressTime;
+
+        
+
+        // Decide if it's a dot or dash based on press duration
+
+        if (pressDuration < dashDuration) {
+
+          // It's a dot
+
+          currentMorseChar += ".";
+
+          Serial.print(".");
+
+        } else {
+
+          // It's a dash
+
+          currentMorseChar += "-";
+
+          Serial.print("-");
+
+        }
+
+      }
+
+    }
+
+  }
+
+  
+
+  lastButtonState = reading;
+
+  
+
+  // Check for letter gap (if button hasn't been pressed for letter gap duration)
+
+  if (currentMorseChar.length() > 0 && millis() - releaseTime > letterGap && buttonState == HIGH) {
+
+    char decodedChar = morseToChar(currentMorseChar);
+
+    if (decodedChar != '\0') {
+
+      message += decodedChar;
+
+      updateDisplay();
+
+      Serial.print(" Decoded: ");
+
+      Serial.println(decodedChar);
+
+    }
+
+    currentMorseChar = "";
+
+  }
+
+  
+
+  // Check for word gap (space)
+
+  if (message.length() > 0 && millis() - releaseTime > wordGap && buttonState == HIGH && currentMorseChar.length() == 0) {
+
+    message += " ";
+
+    updateDisplay();
+
+    Serial.println(" [SPACE]");
+
+    releaseTime = millis(); // Reset to prevent multiple spaces
+
+  }
+
+}
+
+
+
+// Function to convert Morse code to character
+
+char morseToChar(String morse) {
+
+  // Check letters
+
+  for (int i = 0; i < 26; i++) {
+
+    if (morse == morseAlphabet[i]) {
+
+      return letters[i];
+
+    }
+
+  }
+
+  
+
+  // Check numbers
+
+  for (int i = 0; i < 10; i++) {
+
+    if (morse == morseNumbers[i]) {
+
+      return '0' + i;
+
+    }
+
+  }
+
+  
+
+  // Special cases
+
+  if (morse == ".-.-.-") return '.';
+
+  if (morse == "--..--") return ',';
+
+  if (morse == "..--..") return '?';
+
+  
+
+  return '\0'; // Not found
+
+}
+
+
+
+// Update LCD display with current message
+
+void updateDisplay() {
+
+  clearLCD();
+
+  
+
+  // If message is longer than 16 chars, show the last 16
+
+  int startPos = 0;
+
+  if (message.length() > 16) {
+
+    startPos = message.length() - 16;
+
+  }
+
+  
+
+  // Display on first line
+
+  lcd.setCursor(0, 0);
+
+  lcd.print(message.substring(startPos));
+
+  
+
+  // Display current morse character on second line
+
+  lcd.setCursor(0, 1);
+
+  if (currentMorseChar.length() > 0) {
+
+    lcd.print(currentMorseChar);
+
+  }
+
+}
+
+
+
+// Clear LCD screen
+
+void clearLCD() {
+
+  lcd.clear();
+
+}
